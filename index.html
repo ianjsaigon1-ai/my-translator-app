@@ -1,0 +1,246 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>🌐 Live Translator — English ⇄ Vietnamese (GPT5 + Microsoft Voice)</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #00c6ff;
+    --secondary: #0072ff;
+    --bg-gradient: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    --glass-bg: rgba(255, 255, 255, 0.08);
+    --border: rgba(255, 255, 255, 0.18);
+    --text: #f4f8ff;
+  }
+
+  body {
+    font-family: "Poppins", sans-serif;
+    background: var(--bg-gradient);
+    color: var(--text);
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+  }
+
+  .app {
+    width: 95%;
+    max-width: 900px;
+    background: var(--glass-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 25px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(12px);
+  }
+
+  h1 {
+    text-align: center;
+    margin-bottom: 15px;
+    font-weight: 600;
+    background: linear-gradient(90deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  textarea {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 16px;
+    margin-bottom: 12px;
+    resize: vertical;
+  }
+
+  textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  button, select {
+    border: none;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 14px;
+    cursor: pointer;
+    color: #fff;
+    background: linear-gradient(90deg, var(--primary), var(--secondary));
+    transition: all 0.3s ease;
+  }
+
+  button:hover, select:hover { filter: brightness(1.15); }
+  .mic.active { background: linear-gradient(90deg, #0ecb81, #00b894); color: #021017; font-weight: 600; }
+
+  select { background: rgba(255, 255, 255, 0.08); border: 1px solid var(--border); color: var(--text); }
+
+  .status { text-align: center; margin-top: 10px; font-size: 14px; color: #b5c1d4; }
+  footer { text-align: center; margin-top: 15px; font-size: 13px; color: #9aa4b2; }
+
+  @media (max-width: 600px) { .controls { flex-direction: column; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>🌏 Live Translator</h1>
+  <div class="controls">
+    <button id="micBtn" class="mic">🎤 Mic</button>
+    <button id="speakIn">▶ Speak Input</button>
+    <button id="speakOut">🔊 Speak Output</button>
+    <select id="inputLangSelect">
+      <option value="auto">Auto Detect</option>
+      <option value="en">English</option>
+      <option value="vi">Vietnamese</option>
+    </select>
+    <select id="voiceSelect"></select>
+  </div>
+
+  <textarea id="inputText" placeholder="Type or speak here..."></textarea>
+  <textarea id="outputText" readonly placeholder="Translation appears here..."></textarea>
+
+  <div class="status" id="statusText">Ready 🎧</div>
+  <footer>💬 Powered by MyMemory API | Microsoft Voice Ready 🎙</footer>
+</div>
+
+<script>
+// ============== CONFIG ==============
+const MYMEMORY_KEY = "f472cf4841d95ba12db1";
+const statusEl = document.getElementById("statusText");
+const inputEl = document.getElementById("inputText");
+const outputEl = document.getElementById("outputText");
+const micBtn = document.getElementById("micBtn");
+const voiceSelect = document.getElementById("voiceSelect");
+const inputLangSelect = document.getElementById("inputLangSelect");
+
+// ============== SPEECH SYNTHESIS ==============
+const synth = window.speechSynthesis;
+let voices = [];
+
+function loadVoices() {
+  voices = synth.getVoices();
+
+  // Sort voices: show Vietnamese ones first
+  voices.sort((a, b) => a.lang.localeCompare(b.lang));
+
+  voiceSelect.innerHTML = voices.map(v => {
+    let label = `${v.name} (${v.lang})`;
+    if (/vi/i.test(v.lang)) label += " 🇻🇳";
+    if (/Microsoft/i.test(v.name)) label += " ⚡";
+    return `<option value="${v.name}">${label}</option>`;
+  }).join("");
+
+  // Prefer Microsoft Vietnamese voice
+  const vnVoice = voices.find(v => v.name.includes("Microsoft") && v.lang.startsWith("vi"));
+  if (vnVoice) voiceSelect.value = vnVoice.name;
+  else {
+    const viFallback = voices.find(v => v.lang.startsWith("vi"));
+    if (viFallback) voiceSelect.value = viFallback.name;
+  }
+}
+synth.onvoiceschanged = loadVoices;
+loadVoices();
+
+function speak(text, lang) {
+  if (!text.trim()) return;
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = lang === "vi" ? "vi-VN" : "en-US";
+  const chosen = voices.find(v => v.name === voiceSelect.value);
+  if (chosen) utter.voice = chosen;
+  synth.cancel();
+  synth.speak(utter);
+}
+
+// ============== LANGUAGE DETECTION ==============
+function detectLang(text) {
+  const viRegex = /[àáảãạăắằẳẵặâầấẩẫậđèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳỵỷỹ]/i;
+  return viRegex.test(text) ? "vi" : "en";
+}
+
+// ============== SPEECH RECOGNITION ==============
+let recognition;
+let micActive = false;
+
+function initRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { alert("Speech recognition not supported!"); return null; }
+  const r = new SR();
+  r.continuous = true;
+  r.interimResults = true;
+  r.lang = inputLangSelect.value === "vi" ? "vi-VN" : "en-US";
+  r.onstart = () => { micBtn.classList.add("active"); statusEl.textContent = "🎙 Listening..."; };
+  r.onend = () => { micBtn.classList.remove("active"); micActive = false; statusEl.textContent = "✅ Done"; };
+  r.onerror = e => { statusEl.textContent = "⚠️ Mic error: " + e.error; };
+  r.onresult = e => {
+    let text = "";
+    for (let i = e.resultIndex; i < e.results.length; ++i)
+      text += e.results[i][0].transcript + " ";
+    inputEl.value = text.trim();
+    autoTranslate();
+  };
+  return r;
+}
+
+micBtn.onclick = () => {
+  if (!recognition) recognition = initRecognition();
+  if (!recognition) return;
+  if (!micActive) { recognition.start(); micActive = true; }
+  else { recognition.stop(); micActive = false; }
+};
+
+// ============== TRANSLATION (MyMemory API + Key) ==============
+async function translateText(text, source, target) {
+  if (!text.trim()) return "";
+  try {
+    const query = encodeURIComponent(text);
+    const url = `https://api.mymemory.translated.net/get?q=${query}&langpair=${source}|${target}&key=${MYMEMORY_KEY}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data && data.responseData && data.responseData.translatedText) {
+      statusEl.textContent = `✅ Translated via MyMemory`;
+      return data.responseData.translatedText;
+    }
+    throw new Error("Invalid response");
+  } catch (err) {
+    statusEl.textContent = "❌ Translation failed.";
+    console.error("Translate error:", err);
+    return "[Translation failed]";
+  }
+}
+
+// ============== AUTO TRANSLATE ==============
+let debounce;
+function autoTranslate() {
+  clearTimeout(debounce);
+  debounce = setTimeout(async () => {
+    const text = inputEl.value.trim();
+    if (!text) return outputEl.value = "";
+    let src = inputLangSelect.value === "auto" ? detectLang(text) : inputLangSelect.value;
+    let tgt = src === "vi" ? "en" : "vi";
+    statusEl.textContent = "🌐 Translating...";
+    outputEl.value = await translateText(text, src, tgt);
+  }, 400);
+}
+inputEl.addEventListener("input", autoTranslate);
+
+// ============== BUTTON ACTIONS ==============
+document.getElementById("speakIn").onclick = () => speak(inputEl.value, detectLang(inputEl.value));
+document.getElementById("speakOut").onclick = () => speak(outputEl.value, detectLang(outputEl.value));
+statusEl.textContent = "✅ Ready";
+</script>
+</body>
+</html>
