@@ -1,84 +1,150 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mr. Ian's Class Room</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Patrick+Hand&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Poppins', sans-serif; }
-        .font-handwriting { font-family: 'Patrick Hand', cursive; }
-        
-        .bg-classroom { 
-            background-color: #1a202c; 
-            background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://pixabay.com/get/gaa1cf70c7933f59ef391d693911edfb24aeaa0e39d43327dde878f3019d7ea74fd09ddc881e31815e34512eeaef2be82.jpg'); 
-            background-size: cover; 
-            background-position: center;
-            background-attachment: fixed;
-        }
-        
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.7); backdrop-filter: blur(5px);
-            display: flex; align-items: center; justify-content: center;
-        }
-        
-        /* Add a subtle shadow to the text to make it stand out */
-        .text-shadow {
-            text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.7);
-        }
-    </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>🌐 Live Translator</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --primary: #00c6ff; --secondary: #0072ff; --bg-gradient: linear-gradient(135deg, #0f2027, #203a43, #2c5364); --glass-bg: rgba(255, 255, 255, 0.08); --border: rgba(255, 255, 255, 0.18); --text: #f4f8ff; }
+  body { font-family: "Poppins", sans-serif; background: var(--bg-gradient); color: var(--text); margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+  .app { width: 95%; max-width: 900px; background: var(--glass-bg); border: 1px solid var(--border); border-radius: 16px; padding: 25px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); backdrop-filter: blur(12px); }
+  h1 { text-align: center; margin-bottom: 15px; font-weight: 600; background: linear-gradient(90deg, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .lang-header { display: flex; justify-content: space-around; align-items: center; margin-bottom: 10px; font-size: 1.2em; font-weight: 600; }
+  .swap-btn { font-size: 1.5em; cursor: pointer; background: none; border: none; color: var(--text); transition: transform 0.3s; }
+  .swap-btn:hover { transform: scale(1.2) rotate(180deg); }
+  textarea { width: 100%; height: 120px; background: rgba(255, 255, 255, 0.1); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 12px; font-size: 16px; margin-bottom: 12px; resize: vertical; }
+  textarea:focus { outline: none; border-color: var(--primary); }
+  .controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 12px; }
+  button, select { border: none; border-radius: 10px; padding: 10px 14px; font-size: 14px; cursor: pointer; color: #fff; background: linear-gradient(90deg, var(--primary), var(--secondary)); transition: all 0.3s ease; }
+  button:hover, select:hover { filter: brightness(1.15); }
+  .mic.active { background: linear-gradient(90deg, #0ecb81, #00b894); color: #021017; font-weight: 600; }
+  select { background: rgba(255, 255, 255, 0.08); border: 1px solid var(--border); color: var(--text); }
+  .status { text-align: center; margin-top: 10px; font-size: 14px; color: #b5c1d4; min-height: 20px; }
+</style>
 </head>
-<body class="bg-classroom text-white">
-    <div class="min-h-screen flex items-center justify-center">
-        <!-- THIS IS THE CHANGE: The dark box style has been removed -->
-        <div class="text-center p-10 max-w-2xl mx-4">
-            <h1 class="text-6xl lg:text-7xl font-bold mb-2 font-handwriting text-shadow">Mr. Ian's Class Room</h1>
-            <p class="text-lg text-gray-200 mb-8 text-shadow">Click a button below to start class or get the link for your student.</p>
-            <div class="flex flex-col sm:flex-row justify-center items-center gap-4">
-                <button onclick="startClass()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full text-lg transition-transform transform hover:scale-105 w-full sm:w-auto">
-                    Start My Class
-                </button>
-                <button onclick="getStudentLink()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-full text-lg transition-transform transform hover:scale-105 w-full sm:w-auto">
-                    Get Student Link
-                </button>
-            </div>
-        </div>
-    </div>
-    <div id="student-link-modal" class="modal-overlay hidden">
-        <div class="bg-white text-gray-800 rounded-lg shadow-xl p-8 max-w-md text-left">
-            <h2 class="text-2xl font-bold mb-4">Link Copied!</h2>
-            <p class="mb-4">The video link has been copied. Paste this entire message to your student:</p>
-            <div class="bg-gray-100 p-4 rounded-md border border-gray-300">
-                <p class="font-mono text-sm">Here is the link for our class!<br><br>
-                <strong>Link:</strong> <span id="video-link-display" class="text-blue-600"></span><br><br>
-                <strong>Instructions:</strong><br>
-                1. Click the link to open it.<br>
-                2. Click the 'Join meeting' button.<br>
-                3. Allow camera and microphone.<br><br>
-                See you in class!<br>- Tutor Ian</p>
-            </div>
-            <button onclick="closeModal()" class="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Close</button>
-        </div>
-    </div>
-    <script>
-        const VIDEO_CALL_URL = "https://meet.jit.si/Mr-Ians-Professional-Classroom-12345";
-        const studentLinkModal = document.getElementById('student-link-modal');
-        const videoLinkDisplay = document.getElementById('video-link-display');
+<body>
+<div class="app">
+  <h1>🌏 Live Translator</h1>
+  <div class="lang-header">
+    <span id="sourceLangLabel">English</span>
+    <button id="swapBtn" class="swap-btn">⇄</button>
+    <span id="targetLangLabel">Vietnamese</span>
+  </div>
+  <textarea id="inputText" placeholder="Type or speak here..."></textarea>
+  <textarea id="outputText" readonly placeholder="Translation appears here..."></textarea>
+  <div class="controls">
+    <button id="micBtn" class="mic">🎤 Start Mic</button>
+    <button id="speakIn">▶ Speak Input</button>
+    <button id="speakOut">🔊 Speak Output</button>
+    <select id="voiceSelect"></select>
+  </div>
+  <div class="status" id="statusText">Ready 🎧</div>
+</div>
+<script>
+const statusEl = document.getElementById("statusText");
+const inputEl = document.getElementById("inputText");
+const outputEl = document.getElementById("outputText");
+const micBtn = document.getElementById("micBtn");
+const voiceSelect = document.getElementById("voiceSelect");
+const swapBtn = document.getElementById("swapBtn");
+const sourceLangLabel = document.getElementById("sourceLangLabel");
+const targetLangLabel = document.getElementById("targetLangLabel");
 
-        function getStudentLink() {
-            navigator.clipboard.writeText(VIDEO_CALL_URL);
-            videoLinkDisplay.textContent = VIDEO_CALL_URL;
-            studentLinkModal.classList.remove('hidden');
-        }
-        function closeModal() {
-            studentLinkModal.classList.add('hidden');
-        }
-        function startClass() {
-            window.open(VIDEO_CALL_URL, '_blank');
-            window.location.href = 'classroom.html';
-        }
-    </script>
+let sourceLang = 'en';
+let targetLang = 'vi';
+
+const synth = window.speechSynthesis;
+let voices = [];
+function loadVoices() {
+  voices = synth.getVoices().sort((a, b) => a.lang.localeCompare(b.lang));
+  voiceSelect.innerHTML = voices.map(v => `<option value="${v.name}">${v.name} (${v.lang})</option>`).join("");
+  const preferredVoice = voices.find(v => v.name.includes("Microsoft") && v.lang.startsWith(targetLang)) || voices.find(v => v.lang.startsWith(targetLang));
+  if (preferredVoice) voiceSelect.value = preferredVoice.name;
+}
+synth.onvoiceschanged = loadVoices;
+loadVoices();
+
+function speak(text, lang) {
+  if (!text.trim()) return;
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = lang;
+  const chosen = voices.find(v => v.name === voiceSelect.value);
+  if (chosen) utter.voice = chosen;
+  synth.cancel();
+  synth.speak(utter);
+}
+
+let recognition;
+function initRecognition(lang) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { alert("Speech recognition not supported!"); return null; }
+  if (recognition) { recognition.stop(); }
+  recognition = new SR();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = lang;
+  recognition.onstart = () => { micBtn.classList.add("active"); statusEl.textContent = "🎙 Listening..."; };
+  recognition.onend = () => { micBtn.classList.remove("active"); statusEl.textContent = "✅ Mic Off"; };
+  recognition.onerror = e => { statusEl.textContent = `⚠️ Mic error: ${e.error}`; };
+  recognition.onresult = e => {
+    let text = "";
+    for (let i = e.resultIndex; i < e.results.length; ++i) text += e.results[i][0].transcript;
+    inputEl.value = text;
+    if (e.results[e.results.length - 1].isFinal) {
+      autoTranslate();
+    }
+  };
+}
+
+micBtn.onclick = () => {
+  if (micBtn.classList.contains("active")) {
+    recognition.stop();
+  } else {
+    initRecognition(sourceLang === 'en' ? 'en-US' : 'vi-VN');
+    recognition.start();
+  }
+};
+
+async function translateText(text, from, to) {
+  if (!text.trim()) return "";
+  try {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.responseData) {
+      return data.responseData.translatedText;
+    }
+    return "[Translation failed]";
+  } catch (err) {
+    return "[API Error]";
+  }
+}
+
+let debounce;
+function autoTranslate() {
+  clearTimeout(debounce);
+  debounce = setTimeout(async () => {
+    const text = inputEl.value.trim();
+    if (!text) return outputEl.value = "";
+    statusEl.textContent = "🌐 Translating...";
+    outputEl.value = await translateText(text, sourceLang, targetLang);
+    statusEl.textContent = "✅ Translated";
+  }, 500);
+}
+inputEl.addEventListener("input", autoTranslate);
+
+function swapLanguages() {
+    [sourceLang, targetLang] = [targetLang, targetLang]; // Swap the languages
+    [sourceLangLabel.textContent, targetLangLabel.textContent] = [targetLangLabel.textContent, sourceLangLabel.textContent]; // Swap the labels
+    [inputEl.value, outputEl.value] = [outputEl.value, inputEl.value]; // Swap the text
+    loadVoices(); // Refresh voices for new target language
+    autoTranslate();
+}
+swapBtn.onclick = swapLanguages;
+
+document.getElementById("speakIn").onclick = () => speak(inputEl.value, sourceLang === 'en' ? 'en-US' : 'vi-VN');
+document.getElementById("speakOut").onclick = () => speak(outputEl.value, targetLang === 'en' ? 'en-US' : 'vi-VN');
+</script>
 </body>
 </html>
