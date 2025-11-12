@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>🌐 Live Translator</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #00c6ff;
+    --secondary: #0072ff;
+    --bg-gradient: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    --glass: rgba(255,255,255,0.06);
+    --border: rgba(255,255,255,0.14);
+    --muted: #b5c1d4;
+    --text: #f4f8ff;
+    --success: #4ade80;
+    --warning: #f59e0b;
+    --error: #ef4444;
+  }
+  
+  body {
+    font-family: "Poppins", sans-serif;
+    background: var(--bg-gradient);
+    color: var(--text);
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+  }
+  
+  .app {
+    width: 95%;
+    max-width: 900px;
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 25px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    backdrop-filter: blur(12px);
+  }
+  
+  .lang-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    font-size: 1.5em;
+    font-weight: 600;
+  }
+  
+  .swap-btn {
+    font-size: 1.8em;
+    cursor: pointer;
+    background: none;
+    border: none;
+    color: var(--text);
+    transition: transform 0.3s;
+  }
+  
+  .swap-btn:hover {
+    transform: scale(1.2) rotate(180deg);
+  }
+  
+  textarea {
+    width: 100%;
+    height: 150px;
+    background: rgba(255,255,255,0.1);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 16px;
+    margin-bottom: 15px;
+    resize: vertical;
+    transition: border-color 0.3s;
+  }
+  
+  textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+  
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 15px;
+  }
+  
+  button, select {
+    border: none;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 14px;
+    cursor: pointer;
+    color: #fff;
+    background: linear-gradient(90deg, var(--primary), var(--secondary));
+    transition: all 0.3s ease;
+  }
+  
+  button:hover, select:hover {
+    filter: brightness(1.15);
+  }
+  
+  .mic {
+    background: linear-gradient(90deg, #6a48d7, #9d50bb);
+  }
+  
+  .mic.active {
+    background: linear-gradient(90deg, #ff6b6b, #ee5a24);
+  }
+  
+  .status {
+    text-align: center;
+    margin-top: 10px;
+    font-size: 14px;
+    color: var(--muted);
+    min-height: 20px;
+    transition: color 0.3s;
+  }
+  
+  .status.translating {
+    color: var(--warning);
+  }
+  
+  .status.success {
+    color: var(--success);
+  }
+  
+  .status.error {
+    color: var(--error);
+  }
+  
+  .loading {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    border-top-color: var(--primary);
+    animation: spin 1s ease-in-out infinite;
+    margin-right: 8px;
+  }
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  
+  .stats {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="lang-header">
+    <span id="sourceLangLabel">English</span>
+    <button id="swapBtn" class="swap-btn">⇄</button>
+    <span id="targetLangLabel">Tiếng Việt</span>
+  </div>
+  
+  <textarea id="inputText" placeholder="Type or speak in the source language..."></textarea>
+  <textarea id="outputText" readonly placeholder="Translation appears here..."></textarea>
+  
+  <div class="controls">
+    <button id="micBtn" class="mic">🎤 Start Mic</button>
+    <button id="speakIn">▶ Speak Input</button>
+    <button id="speakOut">🔊 Speak Output</button>
+    <button id="copyBtn">📋 Copy</button>
+  </div>
+  
+  <div class="status" id="statusText">Ready 🎧</div>
+  <div class="stats">
+    <span id="charCount">0 characters</span>
+    <span id="translationTime">Last translation: -</span>
+  </div>
+</div>
+
+<script>
+// DOM Elements
+const statusEl = document.getElementById("statusText");
+const inputEl = document.getElementById("inputText");
+const outputEl = document.getElementById("outputText");
+const micBtn = document.getElementById("micBtn");
+const swapBtn = document.getElementById("swapBtn");
+const sourceLangLabel = document.getElementById("sourceLangLabel");
+const targetLangLabel = document.getElementById("targetLangLabel");
+const speakInBtn = document.getElementById("speakIn");
+const speakOutBtn = document.getElementById("speakOut");
+const copyBtn = document.getElementById("copyBtn");
+const charCountEl = document.getElementById("charCount");
+const translationTimeEl = document.getElementById("translationTime");
+
+// App State
+let sourceLang = 'en';
+let targetLang = 'vi';
+let recognition;
+let isListening = false;
+let synth = window.speechSynthesis;
+
+// Translation cache for instant repeat translations
+const translationCache = new Map();
+
+// Common phrases for instant translation
+const commonPhrases = {
+  'en-vi': {
+    'hello': 'xin chào',
+    'thank you': 'cảm ơn',
+    'goodbye': 'tạm biệt',
+    'how are you': 'bạn khỏe không',
+    'yes': 'có',
+    'no': 'không',
+    'please': 'làm ơn',
+    'sorry': 'xin lỗi',
+    'good morning': 'chào buổi sáng',
+    'good night': 'chúc ngủ ngon'
+  },
+  'vi-en': {
+    'xin chào': 'hello',
+    'cảm ơn': 'thank you',
+    'tạm biệt': 'goodbye',
+    'bạn khỏe không': 'how are you',
+    'có': 'yes',
+    'không': 'no',
+    'làm ơn': 'please',
+    'xin lỗi': 'sorry',
+    'chào buổi sáng': 'good morning',
+    'chúc ngủ ngon': 'good night'
+  }
+};
+
+// Set status with visual feedback
+function setStatus(message, type = '') {
+  statusEl.textContent = message;
+  statusEl.className = 'status';
+  if (type) statusEl.classList.add(type);
+}
+
+// Update character count
+function updateCharCount() {
+  const count = inputEl.value.length;
+  charCountEl.textContent = `${count} character${count !== 1 ? 's' : ''}`;
+}
+
+// Text-to-speech function
+function speak(text, lang) {
+  if (!text.trim()) return;
+  
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = lang;
+  synth.cancel();
+  synth.speak(utterance);
+}
+
+// Optimized translation function with caching and common phrases
+async function translateText(text, fromLang, toLang) {
+  if (!text.trim()) return "";
+  
+  const textLower = text.toLowerCase();
+  const phraseKey = `${fromLang}-${toLang}`;
+  
+  // Check common phrases first (instant response)
+  if (commonPhrases[phraseKey] && commonPhrases[phraseKey][textLower]) {
+    return commonPhrases[phraseKey][textLower];
+  }
+  
+  // Check cache for previous translations
+  const cacheKey = `${phraseKey}-${text}`;
+  if (translationCache.has(cacheKey)) {
+    return translationCache.get(cacheKey);
+  }
+  
+  // API translation with timeout protection
+  try {
+    const startTime = performance.now();
+    
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Translation timeout')), 5000)
+    );
+    
+    const translationPromise = fetch(
+      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${fromLang}|${toLang}`
+    );
+    
+    const response = await Promise.race([translationPromise, timeoutPromise]);
+    const data = await response.json();
+    
+    const endTime = performance.now();
+    const translationTime = (endTime - startTime).toFixed(0);
+    
+    if (data.responseData?.translatedText) {
+      // Cache the successful translation
+      translationCache.set(cacheKey, data.responseData.translatedText);
+      translationTimeEl.textContent = `Last translation: ${translationTime}ms`;
+      return data.responseData.translatedText;
+    }
+  } catch (error) {
+    console.error('Translation error:', error);
+    translationTimeEl.textContent = 'Last translation: Failed';
+  }
+  
+  return "[Translation Error]";
+}
+
+// Debounced translation with optimized timing
+let debounce;
+inputEl.addEventListener("input", () => {
+  clearTimeout(debounce);
+  const text = inputEl.value.trim();
+  
+  updateCharCount();
+  
+  if (!text) {
+    outputEl.value = "";
+    setStatus("Ready 🎧");
+    return;
+  }
+  
+  // Show immediate feedback
+  setStatus("Translating...", "translating");
+  
+  // Use shorter delay for very short text, longer for complex text
+  const delay = text.length <= 10 ? 150 : (text.length <= 50 ? 250 : 350);
+  
+  debounce = setTimeout(async () => {
+    const translated = await translateText(text, sourceLang, targetLang);
+    outputEl.value = translated;
+    setStatus("✅ Translated", "success");
+  }, delay);
+});
+
+// Language swapping with proper state management
+function swapLanguages() {
+  // Swap languages
+  [sourceLang, targetLang] = [targetLang, sourceLang];
+  [sourceLangLabel.textContent, targetLangLabel.textContent] = 
+    [targetLangLabel.textContent, sourceLangLabel.textContent];
+  
+  // Swap text content
+  [inputEl.value, outputEl.value] = [outputEl.value, inputEl.value];
+  
+  // Update character count
+  updateCharCount();
+  
+  // Restart speech recognition if active
+  if (isListening) {
+    stopListening();
+    startListening();
+  }
+  
+  // Trigger translation if there's text
+  if (inputEl.value.trim()) {
+    inputEl.dispatchEvent(new Event("input"));
+  }
+}
+
+// Initialize speech recognition
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (SpeechRecognition) {
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  
+  recognition.onresult = (event) => {
+    let finalTranscript = "";
+    let interimTranscript = "";
+    
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const transcript = event.results[i][0].transcript;
+      if (event.results[i].isFinal) {
+        finalTranscript += transcript;
+      } else {
+        interimTranscript += transcript;
+      }
+    }
+    
+    inputEl.value = finalTranscript + interimTranscript;
+    updateCharCount();
+    
+    // Auto-translate when final result is ready
+    if (event.results[event.results.length - 1].isFinal) {
+      inputEl.dispatchEvent(new Event("input"));
+    }
+  };
+  
+  recognition.onerror = (event) => {
+    console.error('Speech recognition error:', event.error);
+    setStatus(`Speech error: ${event.error}`, "error");
+  };
+} else {
+  micBtn.disabled = true;
+  setStatus("Speech recognition not supported", "error");
+}
+
+// Speech recognition controls
+function startListening() {
+  isListening = true;
+  micBtn.classList.add("active");
+  micBtn.textContent = "🛑 Stop Mic";
+  recognition.lang = sourceLang === "en" ? "en-US" : "vi-VN";
+  recognition.start();
+  setStatus("Listening... 🎤", "translating");
+}
+
+function stopListening() {
+  isListening = false;
+  micBtn.classList.remove("active");
+  micBtn.textContent = "🎤 Start Mic";
+  recognition.stop();
+  setStatus("Ready 🎧");
+}
+
+// Event listeners
+swapBtn.onclick = swapLanguages;
+micBtn.onclick = () => isListening ? stopListening() : startListening();
+speakInBtn.onclick = () => speak(inputEl.value, sourceLang === "en" ? "en-US" : "vi-VN");
+speakOutBtn.onclick = () => speak(outputEl.value, targetLang === "en" ? "en-US" : "vi-VN");
+
+// Copy translation to clipboard
+copyBtn.onclick = () => {
+  if (!outputEl.value) return;
+  
+  navigator.clipboard.writeText(outputEl.value)
+    .then(() => {
+      const originalText = copyBtn.textContent;
+      copyBtn.textContent = "✅ Copied!";
+      setTimeout(() => {
+        copyBtn.textContent = originalText;
+      }, 2000);
+    })
+    .catch(err => {
+      console.error('Failed to copy: ', err);
+      setStatus("Failed to copy to clipboard", "error");
+    });
+};
+
+// Initialize character count
+updateCharCount();
+</script>
+</body>
+</html>
